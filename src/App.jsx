@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function App() {
   const [symbol, setSymbol] = useState("");
@@ -27,12 +29,17 @@ export default function App() {
     setLoading(false);
   };
 
+  const getRiskColor = (risk) => {
+    if (risk === "Low") return "#00ff99";
+    if (risk === "Medium") return "#ffaa00";
+    return "#ff4444";
+  };
+
   return (
     <div
       style={{
         minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top, #0a0a0f, #000308 70%)",
+        background: "linear-gradient(135deg, #050510, #0d1525)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -42,7 +49,10 @@ export default function App() {
         padding: "20px",
       }}
     >
-      <h1
+      <motion.h1
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
         style={{
           fontSize: "2.5rem",
           fontWeight: "600",
@@ -51,35 +61,26 @@ export default function App() {
         }}
       >
         💼 NexaVest
-      </h1>
-      <p
-        style={{
-          opacity: 0.7,
-          marginBottom: "2rem",
-          textAlign: "center",
-          maxWidth: "350px",
-          fontSize: "0.95rem",
-        }}
-      >
-        AI-Powered Investment Risk & Return Advisor
-      </p>
+      </motion.h1>
 
-      <div
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6 }}
         style={{
           background: "rgba(255,255,255,0.06)",
           borderRadius: "20px",
           padding: "2rem",
           width: "90%",
-          maxWidth: "400px",
-          boxShadow: "0 0 40px rgba(0,255,180,0.08)",
+          maxWidth: "420px",
+          boxShadow: "0 0 30px rgba(0,255,180,0.1)",
           backdropFilter: "blur(10px)",
-          border: "1px solid rgba(255,255,255,0.08)",
           textAlign: "center",
         }}
       >
         <input
           type="text"
-          placeholder="Enter Stock Symbol (e.g. RELIANCE.NS)"
+          placeholder="Stock Symbol (e.g. RELIANCE.NS)"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
           style={{
@@ -90,15 +91,15 @@ export default function App() {
             marginBottom: "1rem",
             textAlign: "center",
             fontSize: "1rem",
-            outline: "none",
             background: "rgba(255,255,255,0.1)",
             color: "#fff",
+            outline: "none",
           }}
         />
 
         <input
           type="number"
-          placeholder="Enter Investment Amount (₹)"
+          placeholder="Investment Amount (₹)"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           style={{
@@ -109,13 +110,15 @@ export default function App() {
             marginBottom: "1.5rem",
             textAlign: "center",
             fontSize: "1rem",
-            outline: "none",
             background: "rgba(255,255,255,0.1)",
             color: "#fff",
+            outline: "none",
           }}
         />
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={analyzeInvestment}
           disabled={loading}
           style={{
@@ -129,45 +132,89 @@ export default function App() {
             color: "#fff",
             fontWeight: "600",
             fontSize: "1rem",
-            letterSpacing: "0.5px",
             border: "none",
             cursor: "pointer",
             boxShadow: "0 0 20px rgba(0,255,200,0.3)",
             transition: "0.3s ease",
           }}
         >
-          {loading ? "Analyzing..." : "Analyze Investment"}
-        </button>
+          {loading ? "Analyzing..." : "Analyze"}
+        </motion.button>
 
         {result && (
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
             style={{
-              marginTop: "1.8rem",
+              marginTop: "2rem",
               textAlign: "left",
-              fontSize: "0.95rem",
               background: "rgba(255,255,255,0.05)",
               padding: "1rem",
               borderRadius: "12px",
             }}
           >
+            <h3 style={{ marginBottom: "0.8rem", color: "#00ffc8" }}>Analysis Result</h3>
             <p><b>Symbol:</b> {result.symbol}</p>
             <p><b>Volatility:</b> {result.volatility}</p>
             <p><b>Expected Return:</b> {result.expected_return}</p>
-            <p><b>Risk Category:</b> {result.risk_category}</p>
-            <p><b>AI Recommendation:</b> {result.ai_recommendation}</p>
-          </div>
-        )}
-      </div>
+            <p><b>Risk:</b> {result.risk_category}</p>
+            <p style={{ marginTop: "0.8rem", opacity: 0.9 }}>{result.ai_recommendation}</p>
 
-      <p
-        style={{
-          opacity: 0.4,
-          fontSize: "0.8rem",
-          marginTop: "2rem",
-        }}
-      >
-        © 2025 NexaVest • Powered by AI
+            {/* Risk Meter */}
+            <div style={{ marginTop: "1.5rem" }}>
+              <p style={{ marginBottom: "0.5rem" }}>Risk Meter</p>
+              <div
+                style={{
+                  height: "10px",
+                  borderRadius: "5px",
+                  background: "#333",
+                  overflow: "hidden",
+                }}
+              >
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{
+                    width:
+                      result.risk_category === "Low"
+                        ? "33%"
+                        : result.risk_category === "Medium"
+                        ? "66%"
+                        : "100%",
+                    background: getRiskColor(result.risk_category),
+                  }}
+                  transition={{ duration: 0.8 }}
+                  style={{
+                    height: "10px",
+                  }}
+                ></motion.div>
+              </div>
+            </div>
+
+            {/* Chart */}
+            <div style={{ height: "200px", marginTop: "2rem" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={[
+                    { name: "Prev Close", value: result.expected_return * 0.8 },
+                    { name: "Current", value: result.expected_return },
+                    { name: "Projected", value: result.expected_return * 1.2 },
+                  ]}
+                >
+                  <Line type="monotone" dataKey="value" stroke="#00ffc8" strokeWidth={2} />
+                  <XAxis dataKey="name" stroke="#aaa" />
+                  <YAxis hide />
+                  <Tooltip />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      <p style={{ opacity: 0.4, fontSize: "0.8rem", marginTop: "2rem" }}>
+        © 2025 NexaVest • AI Investment Advisor
       </p>
     </div>
   );
-    }
+          }
