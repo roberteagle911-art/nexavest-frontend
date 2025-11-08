@@ -1,220 +1,398 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
+
+/**
+ * App.jsx
+ * - Put your logo at public/logo.png
+ * - Ensure package.json includes: framer-motion, recharts, react, react-dom, vite
+ */
 
 export default function App() {
   const [symbol, setSymbol] = useState("");
   const [amount, setAmount] = useState("");
-  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
 
-  const analyzeInvestment = async () => {
-    if (!symbol || !amount) {
-      alert("Please enter both fields");
-      return;
+  // Try multiple endpoints so frontend works if backend route changed
+  const BACKEND_BASE = "https://nexavest-backend.vercel.app";
+  const ENDPOINTS = ["/ai_recommend", "/analyze", "/predict"];
+
+  async function tryPostEndpoints(payload) {
+    for (const ep of ENDPOINTS) {
+      try {
+        const res = await fetch(BACKEND_BASE + ep, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        // If response looks valid, return
+        if (data && Object.keys(data).length > 0) return data;
+      } catch (e) {
+        // try next
+      }
     }
-    setLoading(true);
-    setResult(null);
-    try {
-      const res = await fetch("https://nexavest-backend.vercel.app/ai_recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, amount: parseFloat(amount) }),
-      });
-      const data = await res.json();
-      setResult(data);
-    } catch {
-      alert("Error connecting to NexaVest API");
-    }
-    setLoading(false);
+    // nothing worked
+    return null;
+  }
+
+  const normalizeResult = (data) => {
+    if (!data) return null;
+    // map possible keys into our canonical fields
+    const volatility =
+      data.volatility ??
+      data.volatil ??
+      data.vol ??
+      data.v ??
+      data.V ??
+      null;
+
+    const expected_return =
+      data.expected_return ??
+      data.expectedReturn ??
+      data.return ??
+      data.expected ??
+      data.er ??
+      null;
+
+    const risk_category =
+      data.risk_category ??
+      data.riskCategory ??
+      data.risk ??
+      data.category ??
+      null;
+
+    const recommendation =
+      data.ai_recommendation ??
+      data.recommendation ??
+      data.ai_recommend ??
+      data.advice ??
+      data.comment ??
+      data.aiRecommendation ??
+      null;
+
+    return {
+      volatility:
+        typeof volatility === "number"
+          ? volatility
+          : volatility && !isNaN(Number(volatility))
+          ? Number(volatility)
+          : null,
+      expected_return:
+        typeof expected_return === "number"
+          ? expected_return
+          : expected_return && !isNaN(Number(expected_return))
+          ? Number(expected_return)
+          : null,
+      risk_category: risk_category ?? null,
+      recommendation: recommendation ?? null,
+      raw: data,
+    };
   };
 
-  const getRiskColor = (risk) => {
-    if (risk === "Low") return "#00ff99";
-    if (risk === "Medium") return "#ffaa00";
-    return "#ff4444";
+  const analyzeStock = async () => {
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    if (!symbol || !amount) {
+      setError("Please enter both symbol and amount.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const payload = { symbol: symbol.trim(), amount: Number(amount) };
+      const data = await tryPostEndpoints(payload);
+
+      if (data === null) {
+        setError("Unable to reach NexaVest API. Please check backend status.");
+        // Optionally you can show mock demo data to avoid blank UI:
+        // setResult(normalizeResult({ volatility:0.12, expected_return:0.08, risk_category:'Medium', ai_recommendation:'Demo:...' }))
+        setLoading(false);
+        return;
+      }
+
+      const normalized = normalizeResult(data);
+      setResult(normalized);
+    } catch (err) {
+      console.error(err);
+      setError("Unexpected error occurred. Check console.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chartData = () => {
+    const base = Number(amount) || 0;
+    const er = result?.expected_return || 0;
+    return [
+      { name: "Current", value: base },
+      { name: "Projected", value: Math.round(base * (1 + er) * 100) / 100 },
+    ];
   };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #050510, #0d1525)",
+        background:
+          "radial-gradient(circle at 10% 10%, #071023 0%, #03040a 40%, #000000 100%)",
+        color: "#fff",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        color: "#fff",
-        fontFamily: "Poppins, sans-serif",
-        padding: "20px",
+        fontFamily: "Inter, Poppins, sans-serif",
+        padding: 20,
       }}
     >
-      <motion.h1
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        style={{
-          fontSize: "2.5rem",
-          fontWeight: "600",
-          marginBottom: "1rem",
-          letterSpacing: "1px",
-        }}
-      >
-        💼 NexaVest
-      </motion.h1>
-
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        style={{
-          background: "rgba(255,255,255,0.06)",
-          borderRadius: "20px",
-          padding: "2rem",
-          width: "90%",
-          maxWidth: "420px",
-          boxShadow: "0 0 30px rgba(0,255,180,0.1)",
-          backdropFilter: "blur(10px)",
-          textAlign: "center",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Stock Symbol (e.g. RELIANCE.NS)"
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "10px",
-            border: "none",
-            marginBottom: "1rem",
-            textAlign: "center",
-            fontSize: "1rem",
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
-            outline: "none",
-          }}
-        />
-
-        <input
-          type="number"
-          placeholder="Investment Amount (₹)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "10px",
-            border: "none",
-            marginBottom: "1.5rem",
-            textAlign: "center",
-            fontSize: "1rem",
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
-            outline: "none",
-          }}
-        />
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={analyzeInvestment}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            background:
-              loading
-                ? "linear-gradient(90deg, #666, #333)"
-                : "linear-gradient(90deg, #00ffcc, #007bff)",
-            color: "#fff",
-            fontWeight: "600",
-            fontSize: "1rem",
-            border: "none",
-            cursor: "pointer",
-            boxShadow: "0 0 20px rgba(0,255,200,0.3)",
-            transition: "0.3s ease",
-          }}
-        >
-          {loading ? "Analyzing..." : "Analyze"}
-        </motion.button>
-
-        {result && (
+      <AnimatePresence mode="wait">
+        {!showAnalyzer ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            key="landing"
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.6 }}
             style={{
-              marginTop: "2rem",
-              textAlign: "left",
-              background: "rgba(255,255,255,0.05)",
-              padding: "1rem",
-              borderRadius: "12px",
+              width: "100%",
+              maxWidth: 900,
+              display: "flex",
+              gap: 30,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
             }}
           >
-            <h3 style={{ marginBottom: "0.8rem", color: "#00ffc8" }}>Analysis Result</h3>
-            <p><b>Symbol:</b> {result.symbol}</p>
-            <p><b>Volatility:</b> {result.volatility}</p>
-            <p><b>Expected Return:</b> {result.expected_return}</p>
-            <p><b>Risk:</b> {result.risk_category}</p>
-            <p style={{ marginTop: "0.8rem", opacity: 0.9 }}>{result.ai_recommendation}</p>
-
-            {/* Risk Meter */}
-            <div style={{ marginTop: "1.5rem" }}>
-              <p style={{ marginBottom: "0.5rem" }}>Risk Meter</p>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              {/* Logo (use public/logo.png) */}
+              <img
+                src="/logo.png"
+                alt="NexaVest"
+                style={{
+                  width: 110,
+                  height: 110,
+                  objectFit: "contain",
+                  marginBottom: 8,
+                }}
+                onError={(e) => {
+                  // fallback show text if logo not found
+                  e.currentTarget.style.display = "none";
+                }}
+              />
               <div
                 style={{
-                  height: "10px",
-                  borderRadius: "5px",
-                  background: "#333",
-                  overflow: "hidden",
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: "#00ffd1",
+                  letterSpacing: 0.4,
                 }}
               >
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{
-                    width:
-                      result.risk_category === "Low"
-                        ? "33%"
-                        : result.risk_category === "Medium"
-                        ? "66%"
-                        : "100%",
-                    background: getRiskColor(result.risk_category),
-                  }}
-                  transition={{ duration: 0.8 }}
-                  style={{
-                    height: "10px",
-                  }}
-                ></motion.div>
+                NexaVest
               </div>
             </div>
 
-            {/* Chart */}
-            <div style={{ height: "200px", marginTop: "2rem" }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={[
-                    { name: "Prev Close", value: result.expected_return * 0.8 },
-                    { name: "Current", value: result.expected_return },
-                    { name: "Projected", value: result.expected_return * 1.2 },
-                  ]}
+            <div
+              style={{
+                width: "92%",
+                maxWidth: 680,
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: 18,
+                padding: 28,
+                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+              }}
+            >
+              <h2 style={{ color: "#c6fff0", marginBottom: 6 }}>
+                AI investment analysis for modern investors
+              </h2>
+              <p style={{ color: "#aebfcf", marginTop: 0 }}>
+                Enter a stock symbol and amount to get a risk & return opinion powered by AI.
+              </p>
+
+              <div
+                style={{
+                  marginTop: 18,
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  onClick={() => setShowAnalyzer(true)}
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(0,255,200,0.14), rgba(0,140,255,0.2))",
+                    color: "#eafffa",
+                    border: "none",
+                    padding: "12px 22px",
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 6px 24px rgba(0,200,180,0.08)",
+                  }}
                 >
-                  <Line type="monotone" dataKey="value" stroke="#00ffc8" strokeWidth={2} />
-                  <XAxis dataKey="name" stroke="#aaa" />
-                  <YAxis hide />
-                  <Tooltip />
-                </LineChart>
-              </ResponsiveContainer>
+                  Analyze Now
+                </button>
+
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // quick sample open analyzer with default symbol
+                    setSymbol("RELIANCE.NS");
+                    setAmount(1000);
+                    setShowAnalyzer(true);
+                  }}
+                  style={{
+                    color: "#98f7ff",
+                    textDecoration: "underline",
+                    fontWeight: 600,
+                    marginLeft: 6,
+                  }}
+                >
+                  Try sample
+                </a>
+              </div>
+            </div>
+
+            <div style={{ color: "#6f7f8f", fontSize: 13, marginTop: 12 }}>
+              © {new Date().getFullYear()} NexaVest — AI-backed investment insights
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="analyzer"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              background: "rgba(255,255,255,0.03)",
+              padding: 20,
+              borderRadius: 16,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <img
+                  src="/logo.png"
+                  alt="logo"
+                  style={{ width: 48, height: 48, objectFit: "contain" }}
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#00ffd1" }}>NexaVest</div>
+              </div>
+
+              <button
+                onClick={() => setShowAnalyzer(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  color: "#fff",
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                ← Home
+              </button>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <input
+                type="text"
+                placeholder="Stock Symbol (e.g. RELIANCE.NS)"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "none",
+                  marginBottom: 10,
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              />
+              <input
+                type="number"
+                placeholder="Investment Amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "none",
+                  marginBottom: 12,
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              />
+
+              <button
+                onClick={analyzeStock}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 10,
+                  border: "none",
+                  background: "linear-gradient(90deg,#00ffd1,#007bff)",
+                  color: "#011",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "Analyzing..." : "Analyze"}
+              </button>
+
+              {error && (
+                <p style={{ color: "#ff8a8a", marginTop: 12, fontWeight: 700 }}>{error}</p>
+              )}
+
+              {result && (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ color: "#9fffe8", fontWeight: 800, marginBottom: 8 }}>Analysis Result</div>
+                  <div style={{ color: "#dbefff" }}>
+                    <div><strong>Symbol:</strong> {symbol}</div>
+                    <div><strong>Volatility:</strong> {result.volatility ?? "N/A"}</div>
+                    <div><strong>Expected Return:</strong> {result.expected_return ?? "N/A"}</div>
+                    <div><strong>Risk:</strong> {result.risk_category ?? "Unknown"}</div>
+                    <div style={{ marginTop: 8 }}><strong>AI Recommendation:</strong> {result.recommendation ?? "No recommendation"}</div>
+                  </div>
+
+                  <div style={{ height: 200, marginTop: 16 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData()}>
+                        <XAxis dataKey="name" stroke="#9fbfd6" />
+                        <YAxis stroke="#9fbfd6" />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#00ffd1" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
-      </motion.div>
-
-      <p style={{ opacity: 0.4, fontSize: "0.8rem", marginTop: "2rem" }}>
-        © 2025 NexaVest • AI Investment Advisor
-      </p>
+      </AnimatePresence>
     </div>
   );
-          }
+              }
