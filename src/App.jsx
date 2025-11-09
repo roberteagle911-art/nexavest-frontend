@@ -7,7 +7,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 👉 Replace with your backend URL
+  
   const BACKEND_URL = "https://nexavest-backend.vercel.app"; 
 
   const analyzeStock = async () => {
