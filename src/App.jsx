@@ -21,14 +21,16 @@ function App() {
     setResult(null);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/ai_recommend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: symbol.toUpperCase(),
-          amount: parseFloat(amount),
-        }),
-      });
+      const response = await fetch(`${BACKEND_URL}/analyze`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    symbol: symbol.toUpperCase(),
+    amount: parseFloat(amount),
+  }),
+});
 
       if (!res.ok) {
         throw new Error(`Server responded with ${res.status}`);
