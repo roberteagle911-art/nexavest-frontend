@@ -7,7 +7,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  
   const BACKEND_URL = "https://nexavest-backend.vercel.app/api";
 
   const analyzeStock = async () => {
@@ -22,20 +21,21 @@ function App() {
 
     try {
       const response = await fetch(`${BACKEND_URL}/analyze`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ symbol, amount }),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, amount: parseFloat(amount) }),
+      });
 
       if (!response.ok) {
-  const msg = await response.text();
-  throw new Error(`Backend error ${response.status}: ${msg}`);
+        const msg = await response.text();
+        throw new Error(`Backend error ${response.status}: ${msg}`);
       }
-      const data = await res.json();
+
+      const data = await response.json();
       setResult(data);
     } catch (err) {
-      setError("Unable to reach NexaVest API. Check backend status.");
-      console.error(err);
+      console.error("❌ API Error:", err);
+      setError("Unable to reach NexaVest API. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -45,13 +45,13 @@ function App() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#0b0b0b",
+        background: "radial-gradient(circle at top, #00111a, #000)",
         color: "#fff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "Poppins, sans-serif",
         padding: "20px",
       }}
     >
@@ -114,14 +114,15 @@ function App() {
         <div
           style={{
             marginTop: "20px",
-            backgroundColor: "#1a1a1a",
+            backgroundColor: "#0d1a1a",
             padding: "15px",
             borderRadius: "10px",
             width: "280px",
             textAlign: "left",
+            boxShadow: "0 0 10px rgba(0, 230, 230, 0.2)",
           }}
         >
-          <h3 style={{ color: "#00e6e6" }}>Analysis Result</h3>
+          <h3 style={{ color: "#00e6e6" }}>📊 Analysis Result</h3>
           <p><strong>Symbol:</strong> {result.symbol}</p>
           <p><strong>Volatility:</strong> {result.volatility}</p>
           <p><strong>Expected Return:</strong> {result.expected_return}</p>
