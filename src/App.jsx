@@ -21,15 +21,12 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/analyze`, {
+      const response = await fetch("https://nexavest-backend.vercel.app/analyze", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({
-    symbol: symbol.toUpperCase(),
-    amount: parseFloat(amount),
-  }),
+  body: JSON.stringify({ symbol, amount }),
 });
 
       if (!res.ok) {
